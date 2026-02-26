@@ -1,0 +1,190 @@
+import os
+import base64
+import json
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# These are the exact permissions asking Google 
+# We ask for — reading and modifying gmail
+SCOPES = [
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.modify'
+]
+
+# Save the token after first login
+# So you don't have to log in every time
+TOKEN_FILE = 'backend/credentials/token.json'
+CLIENT_SECRET_FILE = os.getenv('GOOGLE_CLIENT_SECRET_FILE')
+
+
+def get_gmail_service():
+    """
+    Authenticates with Gmail and returns a service object.
+    First time: opens browser for you to log in.
+    After that: uses saved token automatically.
+    """
+    creds = None
+
+    # Check if we already have a saved token from a previous login
+    if os.path.exists(TOKEN_FILE):
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+
+    # If no token exists or token is expired and can't be refreshed
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            # Token expired but we have refresh token — get new token silently
+            print("Token expired, refreshing automatically...")
+            creds.refresh(Request())
+        else:
+            # No token at all — open browser for first time login
+            print("First time login — opening browser...")
+            flow = InstalledAppFlow.from_client_secrets_file(
+                CLIENT_SECRET_FILE, SCOPES
+            )
+            creds = flow.run_local_server(port=8888)
+
+        # Save the token for future use
+        with open(TOKEN_FILE, 'w') as token:
+            token.write(creds.to_json())
+        print(f"Token saved to {TOKEN_FILE}")
+
+    # Build and return the Gmail service object
+    return build('gmail', 'v1', credentials=creds)
+
+
+def get_email_by_id(service, email_id):
+    """
+    Fetches a single email by its ID and extracts subject, body, sender, date.
+    """
+    try:
+        # Fetch the full email
+        message = service.users().messages().get(
+            userId='me',
+            id=email_id,
+            format='full'
+        ).execute()
+
+        # Extract headers (subject, sender, date live here)
+        headers = message['payload']['headers']
+        subject = next(
+            (h['value'] for h in headers if h['name'] == 'Subject'), 
+            'No Subject'
+        )
+        sender = next(
+            (h['value'] for h in headers if h['name'] == 'From'), 
+            'Unknown Sender'
+        )
+        date = next(
+            (h['value'] for h in headers if h['name'] == 'Date'), 
+            'Unknown Date'
+        )
+        thread_id = message.get('threadId', '')
+
+        # Extract email body — emails can be plain text or HTML
+        body = extract_body(message['payload'])
+
+        return {
+            'id': email_id,
+            'thread_id': thread_id,
+            'subject': subject,
+            'sender': sender,
+            'date': date,
+            'body': body
+        }
+
+    except Exception as e:
+        print(f"Error fetching email {email_id}: {e}")
+        return None
+    
+def strip_html(html_text):
+    """
+    Removes HTML tags and cleans up whitespace.
+    Gives us readable plain text from HTML emails.
+    """
+    import re
+    # Remove HTML tags
+    clean = re.sub(r'<[^>]+>', ' ', html_text)
+    # Remove extra whitespace and blank lines
+    clean = re.sub(r'\s+', ' ', clean).strip()
+    # Decode common HTML entities
+    clean = clean.replace('&nbsp;', ' ')
+    clean = clean.replace('&amp;', '&')
+    clean = clean.replace('&lt;', '<')
+    clean = clean.replace('&gt;', '>')
+    clean = clean.replace('&quot;', '"')
+    return clean
+
+
+def extract_body(payload):
+    """
+    Extracts plain text body from email payload.
+    Emails have a nested structure — this handles both simple and multipart emails.
+    """
+    body = ""
+
+    # Simple email with direct body
+    if 'parts' not in payload:
+        mime_type = payload.get('mimeType', '')
+        data = payload.get('body', {}).get('data', '')
+        if data:
+            decoded = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+            if mime_type == 'text/plain':
+                return decoded
+            elif mime_type == 'text/html':
+                return strip_html(decoded)
+        return body
+    
+    # Try plain text first
+    for part in payload['parts']:
+        if part.get('mimeType') == 'text/plain':
+            data = part.get('body', {}).get('data', '')
+            if data:
+                body = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+                return body
+
+    # Multipart email
+    # Fall back to HTML if no plain text found
+    for part in payload['parts']:
+        if part.get('mimeType') == 'text/html':
+            data = part.get('body', {}).get('data', '')
+            if data:
+                body = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+                return strip_html(body)
+        elif part.get('mimeType', '').startswith('multipart'):
+            body = extract_body(part)
+            if body:
+                return body
+
+    return body
+
+
+def get_recent_emails(service, max_results=5):
+    """
+    Fetches the most recent emails from inbox.
+    Useful for testing and initial setup.
+    """
+    try:
+        results = service.users().messages().list(
+            userId='me',
+            maxResults=max_results,
+            labelIds=['INBOX']
+        ).execute()
+
+        messages = results.get('messages', [])
+        emails = []
+
+        for msg in messages:
+            email = get_email_by_id(service, msg['id'])
+            if email:
+                emails.append(email)
+
+        return emails
+
+    except Exception as e:
+        print(f"Error fetching recent emails: {e}")
+        return []

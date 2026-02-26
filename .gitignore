@@ -1,0 +1,28 @@
+# Environment variables
+.env
+
+# Google credentials
+backend/credentials/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+*.egg-info/
+
+# Conda
+.conda/
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Excel files (contain personal data)
+*.xlsx
+
+#token file
+backend/credentials/token.json
