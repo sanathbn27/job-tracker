@@ -188,3 +188,70 @@ def get_recent_emails(service, max_results=5):
     except Exception as e:
         print(f"Error fetching recent emails: {e}")
         return []
+
+
+def start_gmail_watch(service):
+    """
+    Tells Gmail to start pushing notifications to our Pub/Sub topic
+    when new emails arrive.
+    Must be called once to start watching and renewed every 7 days
+    since Gmail watch expires after 7 days.
+    """
+    project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
+    topic_name = f"projects/{project_id}/topics/gmail-notifications"
+
+    request_body = {
+        'labelIds': ['INBOX'],        # Only watch inbox, not sent/spam
+        'topicName': topic_name       # Where to send notifications
+    }
+
+    try:
+        response = service.users().watch(
+            userId='me',
+            body=request_body
+        ).execute()
+
+        print(f"Gmail watch started successfully!")
+        print(f"History ID: {response.get('historyId')}")
+        print(f"Watch expires: {response.get('expiration')}")
+        return response
+
+    except Exception as e:
+        print(f"Error starting Gmail watch: {e}")
+        return None
+
+
+def get_new_emails_since(service, history_id):
+    """
+    Fetches emails that arrived since a given history ID.
+    Called every time Pub/Sub notifies us of a new email.
+    """
+    try:
+        # Ask Gmail what changed since this history ID
+        history = service.users().history().list(
+            userId='me',
+            startHistoryId=history_id,
+            historyTypes=['messageAdded']  # Only care about new messages
+        ).execute()
+
+        new_emails = []
+        changes = history.get('history', [])
+
+        for change in changes:
+            # Each change can have multiple new messages
+            for msg in change.get('messagesAdded', []):
+                message = msg.get('message', {})
+                email_id = message.get('id')
+
+                # Only process inbox emails, skip sent/drafts
+                labels = message.get('labelIds', [])
+                if 'INBOX' in labels:
+                    email = get_email_by_id(service, email_id)
+                    if email:
+                        new_emails.append(email)
+
+        return new_emails
+
+    except Exception as e:
+        print(f"Error fetching history: {e}")
+        return []
