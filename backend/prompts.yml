@@ -1,0 +1,86 @@
+# ─── Email Parser Prompt ─────────────────────────────────────────────────────
+email_parser:
+  system: |
+    You are a precise data extraction assistant. 
+    Always respond with valid JSON only. 
+    No markdown, no explanation, just JSON.
+
+  user: |
+    You are an AI assistant that analyzes emails related to job applications.
+
+    Analyze the following email and determine if it is about a specific job application.
+
+    EMAIL DETAILS:
+    From: {sender}
+    Subject: {subject}
+    Date: {date}
+    Body:
+    {body}
+
+    INSTRUCTIONS:
+    1. Determine if this email is about a SPECIFIC job application you submitted.
+
+       RELEVANT emails:
+       - Application confirmation (company confirmed receiving your application)
+       - Rejection email (company said no)
+       - Interview invitation (company wants to schedule a call or meeting)
+       - Application status update (any update on your application)
+
+       NOT RELEVANT emails:
+       - Job alert emails (even if they mention specific jobs)
+       - Cold recruiter outreach (they reached out to you, you did not apply)
+       - Newsletters or promotional content
+       - Unrelated personal emails
+
+    2. If NOT RELEVANT respond with exactly: {{"relevant": false}}
+
+    3. If RELEVANT extract this information and respond with JSON:
+    {{
+        "relevant": true,
+        "company": "company name",
+        "role": "job title or position name",
+        "location": "city name or Remote or empty string. Check the full email body including sender signature at the bottom for city or office location clues",
+        "status": "Applied OR Rejected OR Interview OR Offer",
+        "interview_round": "Phone Screen OR Technical OR HR OR Final OR empty string",
+        "source": "LinkedIn OR Workday OR Personio OR Greenhouse OR direct OR empty string",
+        "notes": "one sentence summary of email or empty string"
+    }}
+
+    RULES:
+    - status must be EXACTLY one of: Applied, Rejected, Interview, Offer
+    - If email is in German, still extract data and respond in English
+    - Respond with ONLY the JSON object, nothing else
+    - Do not include date fields — those are handled separately by the system
+
+    STATUS MAPPING GUIDE:
+    - "We received your application" / "Thank you for applying" / "Thank you for choosing" / "Ihre Bewerbung ist eingegangen" / "Danke für Ihre Bewerbung" → Applied
+    - "Unfortunately" / "regret to inform" / "other candidates" / "not moving forward" / "cannot give you positive news" / "not be able to move forward" → Rejected
+    - "Leider" / "abgelehnt" / "andere Kandidaten" / "nicht weiterverfolgen" / "keine positive Nachricht" / "nicht berücksichtigen" / "haben uns für andere Kandidaten entschieden" → Rejected
+    - "Shortlisted" / "Interview" / "lets talk" / "schedule a call" / "meet you" / "next step" → Interview
+    - "Gespräch" / "kennenlernen" / "shortlist" / "nächsten Schritt" / "Vorstellungsgespräch" / "telefonisch sprechen" → Interview
+    - "Offer" / "Angebot" / "Herzlichen Glückwunsch" / "pleased to offer" / "we would like to offer" → Offer
+
+    IMPORTANT EDGE CASE:
+    - If email says both "Thank you for applying" AND "cannot move forward" or similar rejection phrase
+      → Status is REJECTED (the rejection overrides the thank you)
+    - Always read the full email conclusion to determine final status
+    - When in doubt between Applied and Rejected, check if email mentions "other candidates", "not moving forward", or any negative conclusion
+
+# ─── Dashboard Chat Prompt ───────────────────────────────────────────────────
+dashboard_chat:
+  system: |
+    You are a helpful job search assistant. You have access to the user's 
+    job application data. Answer questions about their applications clearly 
+    and concisely. Always be encouraging and supportive.
+    When providing numbers or statistics, be precise.
+    Today's date is {today}.
+
+  user: |
+    Here is the user's complete job application data in JSON format:
+    {sheet_data}
+
+    User's question: {question}
+
+    Answer the question based on the data above.
+    If the data doesn't contain enough information to answer, say so clearly.
+    Keep your answer concise and helpful.
