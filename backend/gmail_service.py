@@ -6,6 +6,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
+from backend.config import get_token_file, get_client_secret_file
 
 load_dotenv()
 
@@ -18,8 +19,8 @@ SCOPES = [
 
 # Save the token after first login
 # So you don't have to log in every time
-TOKEN_FILE = 'backend/credentials/token.json'
-CLIENT_SECRET_FILE = os.getenv('GOOGLE_CLIENT_SECRET_FILE')
+# TOKEN_FILE = 'backend/credentials/token.json'
+# CLIENT_SECRET_FILE = os.getenv('GOOGLE_CLIENT_SECRET_FILE')
 
 
 def get_gmail_service():
@@ -31,27 +32,24 @@ def get_gmail_service():
     creds = None
 
     # Check if we already have a saved token from a previous login
-    if os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+    token_file = get_token_file()
+    client_secret_file = get_client_secret_file()
 
-    # If no token exists or token is expired and can't be refreshed
+    if token_file and os.path.exists(token_file):
+        creds = Credentials.from_authorized_user_file(token_file, SCOPES)
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            # Token expired but we have refresh token — get new token silently
-            print("Token expired, refreshing automatically...")
             creds.refresh(Request())
         else:
-            # No token at all — open browser for first time login
-            print("First time login — opening browser...")
             flow = InstalledAppFlow.from_client_secrets_file(
-                CLIENT_SECRET_FILE, SCOPES
+                client_secret_file, SCOPES
             )
             creds = flow.run_local_server(port=8888)
 
-        # Save the token for future use
-        with open(TOKEN_FILE, 'w') as token:
+        with open(token_file, 'w') as token:
             token.write(creds.to_json())
-        print(f"Token saved to {TOKEN_FILE}")
+        print(f"Token saved to {token_file}")
 
     # Build and return the Gmail service object
     return build('gmail', 'v1', credentials=creds)

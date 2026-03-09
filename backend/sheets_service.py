@@ -4,11 +4,12 @@ from datetime import datetime, date
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
+from backend.config import get_service_account_file
 
 load_dotenv()
 
 # Service account credentials — the robot account
-SERVICE_ACCOUNT_FILE = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE')
+SERVICE_ACCOUNT_FILE = get_service_account_file()
 SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')
 
 # Scopes for Sheets API
