@@ -30,12 +30,14 @@ async def lifespan(app: FastAPI):
 
     watch_response = start_gmail_watch(app.state.gmail_service)
     if watch_response:
-        history_id = watch_response.get('historyId')
-        if history_id:
+        existing_history_id = get_last_history_id()
+        if not existing_history_id:
+            # Only save if we don't already have one
+            history_id = watch_response.get('historyId')
             save_history_id(history_id)
-        print(f"Gmail watch active. History ID: {history_id}")
-    else:
-        print("Warning: Gmail watch failed to start!")
+            print(f"Gmail watch active. New History ID: {history_id}")
+        else:
+            print(f"Gmail watch active. Using existing History ID: {existing_history_id}")
 
     yield
 
@@ -77,13 +79,23 @@ async def receive_pubsub_notification(request: Request):
 
         # Decode base64 → string → dict
         decoded_bytes = base64.b64decode(data_base64)
-        decoded_str = decoded_bytes.decode('utf-8')
-        notification = json.loads(decoded_str)
+        decoded_str = decoded_bytes.decode('utf-8', errors='ignore')
+        decoded_str = decoded_str.strip().lstrip('\ufeff')
+        try:
+            notification = json.loads(decoded_str)
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON in Pub/Sub message: {e}")
+            return JSONResponse(status_code=200, content={"status": "invalid json"})
 
         print(f"Notification received: {notification}")
 
         new_history_id = notification.get('historyId')
         last_history_id = get_last_history_id()
+
+        # Ignore stale notifications from Pub/Sub backlog
+        if last_history_id and int(new_history_id) < int(last_history_id):
+            print(f"Stale notification ({new_history_id} < {last_history_id}) — ignoring")
+            return JSONResponse(status_code=200, content={"status": "stale"})
 
         if not last_history_id:
             print("No last history ID — saving current and skipping")
@@ -122,7 +134,10 @@ async def receive_pubsub_notification(request: Request):
             save_processed_email(email_id)
 
         # Save new history ID
-        save_history_id(new_history_id)
+        # Only save if newer than current
+        current_id = get_last_history_id()
+        if not current_id or int(new_history_id) > int(current_id):
+            save_history_id(new_history_id)
 
         return JSONResponse(
             status_code=200,

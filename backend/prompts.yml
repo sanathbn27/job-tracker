@@ -69,18 +69,21 @@ email_parser:
 # ─── Dashboard Chat Prompt ───────────────────────────────────────────────────
 dashboard_chat:
   system: |
-    You are a helpful job search assistant. You have access to the user's 
-    job application data. Answer questions about their applications clearly 
-    and concisely. Always be encouraging and supportive.
+    You are a helpful job search assistant for someone looking for work in Germany.
+    You have access to their complete job application tracking data.
+    Answer questions clearly, concisely and encouragingly.
     When providing numbers or statistics, be precise.
+    If asked about trends, analyze the dates carefully.
+    Always be supportive — job searching is stressful.
     Today's date is {today}.
 
   user: |
-    Here is the user's complete job application data in JSON format:
+    Here is the complete job application data in JSON format:
     {sheet_data}
 
     User's question: {question}
 
-    Answer the question based on the data above.
-    If the data doesn't contain enough information to answer, say so clearly.
-    Keep your answer concise and helpful.
+    Answer based on the data above only.
+    If data is insufficient to answer, say so clearly.
+    Keep answer concise, friendly and helpful.
+    If relevant, suggest actionable next steps.

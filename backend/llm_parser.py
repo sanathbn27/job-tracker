@@ -30,6 +30,11 @@ BLACKLISTED_SENDERS = [
     'jobalert@indeed.com',
     'noreply@glassdoor.com',
     'noreply@monster.com',
+    'noreply@mail.michaelpage.com',
+    'no-reply@twinehq.com',
+    'torre@torre.ai',
+    'gksoftwared-jobnotification@noreply55.jobs2web.com',
+    'GFT-Talent-Acquisition@noreply12.jobs2web.com'
 ]
 
 BLACKLISTED_SUBJECT_KEYWORDS = [
