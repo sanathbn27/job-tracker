@@ -26,4 +26,7 @@ Thumbs.db
 
 #token file
 backend/credentials/token.json
+backend/credentials/client_secret*.json
+backend/credentials/jobapplications*.json
 backend/credentials/processed_emails.json
+backend/credentials/last_history_id.txt
