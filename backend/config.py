@@ -89,7 +89,7 @@ def get_service_account_file() -> str:
         return 'EMPTY'
     if sa.strip().startswith('{'):
         try:
-            data = json.loads(sa)
+            data = json.loads(sa, strict=False)
             tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
             json.dump(data, tmp)
             tmp.close()
