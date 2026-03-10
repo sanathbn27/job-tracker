@@ -95,8 +95,8 @@ def get_service_account_file() -> str:
             tmp.close()
             return tmp.name
         except json.JSONDecodeError as e:
-            return f'JSON_ERROR: {e}'  # return error instead of ''
-    return f'PATH: {sa[:30]}'
+            return ''
+    return sa
 
 
 # ── Token management ──────────────────────────────────────────────────────────

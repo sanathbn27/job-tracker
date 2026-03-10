@@ -45,12 +45,6 @@ DEFAULT_COLS = [
 @st.cache_data(ttl=60)
 def load_data() -> pd.DataFrame:
     try:
-        import os
-        from backend.config import get_service_account_file
-        sa = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE', 'NOT_FOUND')
-        st.write(f"DEBUG SA starts with: {sa[:20]!r}")
-        path = get_service_account_file()
-        st.write(f"DEBUG path returned: {path!r}")
         sheets = get_sheets_service()
         rows = get_all_rows(sheets)
         if not rows:
@@ -102,7 +96,7 @@ def main():
     # ── Header ────────────────────────────────────────────────────────────────
     c_title, _, c_refresh = st.columns([5, 1, 1])
     with c_title:
-        st.markdown('<div class="page-title">💼 Job Tracker</div>', unsafe_allow_html=True)
+        st.markdown('<div class="page-title">💼 Job Application Tracker</div>', unsafe_allow_html=True)
         st.markdown(
             f'<div class="page-sub">LAST SYNCED · {datetime.now().strftime("%d %b %Y, %H:%M")}</div>',
             unsafe_allow_html=True
@@ -394,7 +388,7 @@ def main():
         disp = disp[~has_date | (disp['Date Responded'] >= ts)]
 
     # Sort: most recent Date Applied first, NaT at bottom
-    disp = disp.sort_values('Date Applied', ascending=False, na_position='last')
+    disp = disp.sort_values(['Date Applied', 'ID'], ascending=[False, False], na_position='last')
 
     total_filtered = len(disp)
 
