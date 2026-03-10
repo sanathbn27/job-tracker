@@ -45,6 +45,9 @@ DEFAULT_COLS = [
 @st.cache_data(ttl=60)
 def load_data() -> pd.DataFrame:
     try:
+        import os
+        sa = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE', 'NOT_FOUND')
+        st.write(f"DEBUG SA starts with: {sa[:20]!r}")
         sheets = get_sheets_service()
         rows = get_all_rows(sheets)
         if not rows:
