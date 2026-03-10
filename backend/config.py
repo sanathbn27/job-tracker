@@ -6,7 +6,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Environment detection ─────────────────────────────────────────────────────
-IS_RAILWAY = os.getenv('RAILWAY_ENVIRONMENT') is not None
+IS_RAILWAY = (
+    os.getenv('RAILWAY_ENVIRONMENT') is not None or
+    os.getenv('STREAMLIT_SHARING_MODE') is not None or
+    os.getenv('HOME', '').startswith('/home/adminuser')  # Streamlit Cloud
+)
 
 # ── Google ────────────────────────────────────────────────────────────────────
 SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')
