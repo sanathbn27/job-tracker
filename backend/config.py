@@ -61,17 +61,51 @@ def _write_temp_json(env_var_name: str) -> str:
 
 
 def get_client_secret_file() -> str:
-    """Returns path to client secret JSON — temp file on Railway, local path otherwise."""
-    if IS_RAILWAY:
-        return _write_temp_json('GOOGLE_CLIENT_SECRET_FILE')
-    return _LOCAL_CLIENT_SECRET_FILE
+    """Returns path to client secret JSON — handles both file path and JSON content."""
+    cs = os.getenv('GOOGLE_CLIENT_SECRET_FILE', '')
+    
+    if not cs:
+        return ''
+    
+    if cs.strip().startswith('{'):
+        try:
+            data = json.loads(cs)
+            tmp = tempfile.NamedTemporaryFile(
+                mode='w', suffix='.json', delete=False
+            )
+            json.dump(data, tmp)
+            tmp.close()
+            return tmp.name
+        except json.JSONDecodeError as e:
+            print(f"Error parsing GOOGLE_CLIENT_SECRET_FILE: {e}")
+            return ''
+    
+    return cs
 
 
 def get_service_account_file() -> str:
-    """Returns path to service account JSON — temp file on Railway, local path otherwise."""
-    if IS_RAILWAY:
-        return _write_temp_json('GOOGLE_SERVICE_ACCOUNT_FILE')
-    return _LOCAL_SERVICE_ACCOUNT_FILE
+    """Returns path to service account JSON — handles both file path and JSON content."""
+    sa = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE', '')
+    
+    if not sa:
+        return ''
+    
+    # If it looks like JSON content (not a file path) — write to temp file
+    if sa.strip().startswith('{'):
+        try:
+            data = json.loads(sa)
+            tmp = tempfile.NamedTemporaryFile(
+                mode='w', suffix='.json', delete=False
+            )
+            json.dump(data, tmp)
+            tmp.close()
+            return tmp.name
+        except json.JSONDecodeError as e:
+            print(f"Error parsing GOOGLE_SERVICE_ACCOUNT_FILE: {e}")
+            return ''
+    
+    # Otherwise treat as file path (local development)
+    return sa
 
 
 # ── Token management ──────────────────────────────────────────────────────────
