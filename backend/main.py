@@ -3,6 +3,7 @@ import json
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
+import asyncio
 from backend.gmail_service import (
     get_gmail_service,
     start_gmail_watch,
@@ -19,6 +20,20 @@ from backend.llm_parser import parse_job_email
 from backend.sheets_service import process_parsed_email
 from backend.excel_service import process_parsed_email_excel
 
+
+async def renew_gmail_watch_periodically(app):
+    """Renews Gmail watch every 6 days to prevent expiry."""
+    while True:
+        await asyncio.sleep(6 * 24 * 60 * 60)  # 6 days in seconds
+        try:
+            print("Renewing Gmail watch...")
+            watch_response = start_gmail_watch(app.state.gmail_service)
+            if watch_response:
+                print(f"Gmail watch renewed. New expiry: {watch_response.get('expiration')}")
+            else:
+                print("Warning: Gmail watch renewal failed!")
+        except Exception as e:
+            print(f"Error renewing Gmail watch: {e}")
 
 # ─── Lifespan ────────────────────────────────────────────────────────────────
 @asynccontextmanager
@@ -39,6 +54,10 @@ async def lifespan(app: FastAPI):
         else:
             print(f"Gmail watch active. Using existing History ID: {existing_history_id}")
 
+
+    # Start background watch renewal task
+    asyncio.create_task(renew_gmail_watch_periodically(app))
+    
     yield
 
     # SHUTDOWN
