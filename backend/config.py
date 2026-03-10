@@ -5,12 +5,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Environment detection ─────────────────────────────────────────────────────
-IS_RAILWAY = (
-    os.getenv('RAILWAY_ENVIRONMENT') is not None or
-    os.getenv('STREAMLIT_SHARING_MODE') is not None or
-    os.getenv('HOME', '').startswith('/home/adminuser')  # Streamlit Cloud
-)
+# # ── Environment detection ─────────────────────────────────────────────────────
+# IS_RAILWAY = (
+#     os.getenv('RAILWAY_ENVIRONMENT') is not None or
+#     os.getenv('STREAMLIT_SHARING_MODE') is not None or
+#     os.getenv('HOME', '').startswith('/home/adminuser')  
+# )
 
 # ── Google ────────────────────────────────────────────────────────────────────
 SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')
@@ -24,6 +24,22 @@ _LOCAL_HISTORY_ID_FILE      = 'backend/credentials/last_history_id.txt'
 _LOCAL_PROCESSED_FILE       = 'backend/credentials/processed_emails.json'
 _LOCAL_CLIENT_SECRET_FILE   = os.getenv('GOOGLE_CLIENT_SECRET_FILE', '')
 _LOCAL_SERVICE_ACCOUNT_FILE = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE', '')
+
+def _is_cloud() -> bool:
+    """Detect if running in cloud environment (Railway or Streamlit Cloud)."""
+    # Railway
+    if os.getenv('RAILWAY_ENVIRONMENT'):
+        return True
+    # Streamlit Cloud
+    if os.getenv('HOME', '').startswith('/home/adminuser'):
+        return True
+    # Fallback: if service account env var looks like JSON not a path
+    sa = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE', '')
+    if sa.strip().startswith('{'):
+        return True
+    return False
+
+IS_RAILWAY = _is_cloud()
 
 # ── Write JSON env vars to temp files (Railway) ───────────────────────────────
 def _write_temp_json(env_var_name: str) -> str:
