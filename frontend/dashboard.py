@@ -21,6 +21,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 st.markdown(get_css(), unsafe_allow_html=True)
+st.markdown("""
+    <style>
+    [data-testid="stStatusWidget"] { display: none; }
+    </style>
+""", unsafe_allow_html=True)
 
 HEADERS = [
     'ID', 'Company', 'Role', 'Location',
