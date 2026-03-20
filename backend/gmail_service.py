@@ -6,6 +6,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
+from backend.config import IS_RAILWAY
 from backend.config import get_token_file, get_client_secret_file
 
 load_dotenv()
@@ -40,16 +41,22 @@ def get_gmail_service():
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
+            print("Token expired, refreshing automatically...")
             creds.refresh(Request())
+            
+            if IS_RAILWAY:
+                os.environ['GOOGLE_TOKEN_JSON'] = creds.to_json()
+                print("Token refreshed and updated in memory")
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
                 client_secret_file, SCOPES
             )
             creds = flow.run_local_server(port=8888)
 
-        with open(token_file, 'w') as token:
-            token.write(creds.to_json())
-        print(f"Token saved to {token_file}")
+        if token_file:
+            with open(token_file, 'w') as token:
+                token.write(creds.to_json())
+            print(f"Token saved to {token_file}")
 
     # Build and return the Gmail service object
     return build('gmail', 'v1', credentials=creds)

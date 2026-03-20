@@ -100,8 +100,11 @@ def get_service_account_file() -> str:
 
 
 # ── Token management ──────────────────────────────────────────────────────────
+_token_temp_file = None  # reuse same temp file path
+
 def get_token_file() -> str:
     """Returns path to token.json — temp file on Railway, local path otherwise."""
+    global _token_temp_file
     if not IS_RAILWAY:
         return _LOCAL_TOKEN_FILE
 
@@ -109,13 +112,16 @@ def get_token_file() -> str:
     if not token_content:
         return ''
     try:
-        data = json.loads(token_content)
-        tmp = tempfile.NamedTemporaryFile(
-            mode='w', suffix='.json', delete=False
-        )
+        data = json.loads(token_content, strict=False)
+        if _token_temp_file and os.path.exists(_token_temp_file):
+            with open(_token_temp_file, 'w') as f:
+                json.dump(data, f)
+            return _token_temp_file
+        tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
         json.dump(data, tmp)
         tmp.close()
-        return tmp.name
+        _token_temp_file = tmp.name
+        return _token_temp_file
     except json.JSONDecodeError as e:
         print(f"Error parsing GOOGLE_TOKEN_JSON: {e}")
         return ''

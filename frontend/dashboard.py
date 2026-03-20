@@ -5,7 +5,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
 from backend.sheets_service import get_sheets_service, get_all_rows
 from backend.llm_chat import answer_question
 from frontend.styles import (
@@ -102,8 +103,9 @@ def main():
     c_title, _, c_refresh = st.columns([5, 1, 1])
     with c_title:
         st.markdown('<div class="page-title">💼 Job Application Tracker</div>', unsafe_allow_html=True)
+        cet = timezone(timedelta(hours=1))
         st.markdown(
-            f'<div class="page-sub">LAST SYNCED · {datetime.now().strftime("%d %b %Y, %H:%M")}</div>',
+            f'<div class="page-sub">LAST SYNCED · {datetime.now(cet).strftime("%d %b %Y, %H:%M")} CET</div>',
             unsafe_allow_html=True
         )
     with c_refresh:
