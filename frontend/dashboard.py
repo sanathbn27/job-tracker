@@ -1,5 +1,7 @@
 import sys
 import os
+
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
@@ -417,6 +419,9 @@ def main():
         vis = DEFAULT_COLS
     disp = disp[vis]
 
+    # if not isinstance(disp, pd.Series):
+    #     disp = disp.to_frame()
+
     # Status coloring
     def color_status(val):
         return {
@@ -426,8 +431,10 @@ def main():
             'Offer':     'background-color:rgba(52,211,153,0.10);  color:#34D399; font-weight:600',
         }.get(val, '')
 
-    styled = disp.style.applymap(color_status, subset=['Status']) \
-        if 'Status' in vis else disp.style
+    if 'Status' in disp.columns:
+        styled = disp.style.map(color_status, subset=['Status'])
+    else:
+        styled = disp.style
 
     col_config = {}
     if 'Status' in vis:
