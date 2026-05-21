@@ -26,10 +26,15 @@ COLUMNS = {
     'Date Responded': 5,  # F
     'Days Taken': 6,      # G
     'Status': 7,          # H
-    'Interview Round': 8, # I
-    'Source': 9,          # J
-    'Email Thread ID': 10,# K
-    'Notes': 11           # L
+
+    # #new rows for data tracking with status
+    # 'Previous Status': 7, # H (overloaded for update logic)
+    # 'Current Status': 8,  # I (overloaded for update logic)
+
+    'Interview Round': 8, # J
+    'Source': 9,        # K
+    'Email Thread ID': 10,# L
+    'Notes': 11           # M
 }
 
 
@@ -56,6 +61,7 @@ def get_all_rows(sheets) -> list:
         result = sheets.values().get(
             spreadsheetId=SPREADSHEET_ID,
             range='Sheet1!A:L'
+            # range='Sheet1!A:M'
         ).execute()
 
         rows = result.get('values', [])
@@ -91,7 +97,21 @@ def generate_job_id(sheets) -> str:
                     continue
 
     # Return next number with zero padding
-    return f'JOB{str(max_num + 1).zfill(3)}'
+    return f'JOB{str(max_num + 1).zfill(4)}'
+
+def get_current_status(row: list) -> str:
+    """
+    Works with BOTH old and new sheet formats.
+    """
+    # New format: Current Status exists (col 8)
+    if len(row) > 8 and row[8]:
+        return row[8]
+
+    # Old format: Status (col 7)
+    if len(row) > 7 and row[7]:
+        return row[7]
+
+    return ''
 
 
 def calculate_days_taken(date_applied: str, date_responded: str) -> str:
@@ -151,6 +171,7 @@ def find_matching_row(sheets, company: str, role: str,
         row_company = row[COLUMNS['Company']].lower().strip()
         row_role = row[COLUMNS['Role']].lower().strip()
         row_status = row[COLUMNS['Status']]
+        # row_status = get_current_status(row)
 
         company_match = (
             company_lower in row_company or
@@ -254,16 +275,19 @@ def create_new_row(sheets, parsed_data: dict, note_override: str = '') -> bool:
             date_responded,   # F - Date Responded
             days_taken,       # G - Days Taken
             status,           # H - Status
-            interview_round,  # I - Interview Round
-            source,           # J - Source
-            thread_id,        # K - Email Thread ID
-            notes             # L - Notes
+            # '',
+            # status,           # I - Current Status (same as Status for new rows)
+            interview_round,  # J - Interview Round
+            source,           # K - Source
+            thread_id,        # L - Email Thread ID
+            notes             # M - Notes
         ]
 
         # Append row to sheet
         sheets.values().append(
             spreadsheetId=SPREADSHEET_ID,
             range='Sheet1!A:L',
+            # range='Sheet1!A:M',
             valueInputOption='RAW',
             insertDataOption='INSERT_ROWS',
             body={'values': [new_row]}
@@ -275,6 +299,25 @@ def create_new_row(sheets, parsed_data: dict, note_override: str = '') -> bool:
     except Exception as e:
         print(f"Error creating row: {e}")
         return False
+    
+def update_status_transition(row_data: list, new_status: str):
+    """
+    Handles both OLD and NEW sheet formats safely.
+    """
+
+    # Ensure row is long enough
+    while len(row_data) < 13:
+        row_data.append('')
+
+    old_status = get_current_status(row_data)
+
+    # If new schema already exists (we detect by presence of col 8)
+    if len(row_data) > 8:
+        row_data[7] = old_status      # Previous Status
+        row_data[8] = new_status      # Current Status
+    else:
+        # OLD SHEET → overwrite Status only (no history yet)
+        row_data[7] = new_status
 
 
 def update_existing_row(sheets, row_index: int, row_data: list, parsed_data: dict) -> bool:
@@ -301,6 +344,7 @@ def update_existing_row(sheets, row_index: int, row_data: list, parsed_data: dic
         row_data[COLUMNS['Date Responded']] = date_responded
         row_data[COLUMNS['Days Taken']] = days_taken
         row_data[COLUMNS['Status']] = new_status
+        # update_status_transition(row_data, new_status)
         if interview_round:
             row_data[COLUMNS['Interview Round']] = interview_round
         if notes:
@@ -314,6 +358,7 @@ def update_existing_row(sheets, row_index: int, row_data: list, parsed_data: dic
         sheets.values().update(
             spreadsheetId=SPREADSHEET_ID,
             range=f'Sheet1!A{sheet_row_num}:L{sheet_row_num}',
+            # range=f'Sheet1!A{sheet_row_num}:M{sheet_row_num}',
             valueInputOption='RAW',
             body={'values': [row_data]}
         ).execute()
